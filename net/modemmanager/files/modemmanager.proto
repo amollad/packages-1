@@ -70,16 +70,16 @@ modemmanager_get_multivalue_field() {
 
 	length=$(modemmanager_get_field "${list}" "${field}.length")
 	[ -n "${length}" ] || return 0
-	[ $length -ge 1 ] || return 0
+	[ "$length" -ge 1 ] || return 0
 
 	idx=1
-	while [ $idx -le $length ]; do
+	while [ $idx -le "$length" ]; do
 		item=$(modemmanager_get_field "${list}" "${field}.value\[$idx\]")
 		[ -n "${item}" ] && [ "${item}" != "--" ] && {
 			[ -n "${value}" ] && value="${value}, "
 			value="${value}${item}"
 		}
-		idx=$(expr $idx + 1)
+		idx=$((idx + 1))
 	done
 
 	# nothing built?
@@ -98,15 +98,15 @@ modemmanager_cleanup_connection() {
 	bearercount=$(modemmanager_get_field "${modemstatus}" "modem.generic.bearers.length")
 
 	# do nothing if no bearers reported
-	[ -n "${bearercount}" ] && [ $bearercount -ge 1 ] && {
+	[ -n "${bearercount}" ] && [ "$bearercount" -ge 1 ] && {
 		# explicitly disconnect just in case
 		mmcli --modem="${device}" --simple-disconnect >/dev/null 2>&1
 		# and remove all bearer objects, if any found
 		idx=1
-		while [ $idx -le $bearercount ]; do
+		while [ $idx -le "$bearercount" ]; do
 			bearerpath=$(modemmanager_get_field "${modemstatus}" "modem.generic.bearers.value\[$idx\]")
 			mmcli --modem "${device}" --delete-bearer="${bearerpath}" >/dev/null 2>&1
-			idx=$(expr $idx + 1)
+			idx=$((idx + 1))
 		done
 	}
 }
@@ -145,7 +145,8 @@ modemmanager_disconnected_method_ppp() {
 	echo "running disconnection (ppp method)"
 
 	[ -n "${ERROR}" ] && {
-		local errorstring =$(ppp_exitcode_tostring "${ERROR}")
+		local errorstring
+		errorstring=$(ppp_exitcode_tostring "${ERROR}")
 		case "$ERROR" in
 			0)
 				;;
@@ -243,8 +244,6 @@ modemmanager_disconnected_method_static() {
 }
 
 proto_modemmanager_init_config() {
-	no_device=1
-	available=1
 	proto_config_add_string	 "device:device"
 	proto_config_add_string	 apn
 	proto_config_add_string	 username
@@ -257,10 +256,13 @@ proto_modemmanager_init_config() {
 proto_modemmanager_setup() {
 	local interface="$1"
 
-	local modempath modemstatus bearercount bearerpath connectargs bearerstatus beareriface method
+	local modempath modemstatus bearercount bearerpath connectargs bearerstatus beareriface
 	local operatorname operatorid registration accesstech signalquality
 
 	local device apn username password pincode iptype metric
+	
+	local address prefix gateway mtu dns1 dns2
+
 	json_get_vars device apn username password pincode iptype metric
 
 	# validate sysfs path given in config
@@ -315,7 +317,7 @@ proto_modemmanager_setup() {
 	# we won't like it if there are more than one bearers, as that would mean the
 	# user manually created them, and that's unsupported by this proto
 	bearercount=$(modemmanager_get_field "${modemstatus}" "modem.generic.bearers.length")
-	[ -n "${bearercount}" ] && [ $bearercount -eq 1 ] || {
+	[ -n "${bearercount}" ] && [ "$bearercount" -eq 1 ] || {
 		proto_notify_error "${interface}" INVALID_BEARER_LIST
 		return 1
 	}
@@ -334,12 +336,12 @@ proto_modemmanager_setup() {
 		modemmanager_connected_method_dhcp "${interface}" "${beareriface}" "${metric}"
 		;;
 	"static")
-		local address=$(modemmanager_get_field "${bearerstatus}" "bearer.ipv4-config.address")
-		local prefix=$(modemmanager_get_field "${bearerstatus}" "bearer.ipv4-config.prefix")
-		local gateway=$(modemmanager_get_field "${bearerstatus}" "bearer.ipv4-config.gateway")
-		local mtu=$(modemmanager_get_field "${bearerstatus}" "bearer.ipv4-config.mtu")
-		local dns1=$(modemmanager_get_field "${bearerstatus}" "bearer.ipv4-config.dns.value\[1\]")
-		local dns2=$(modemmanager_get_field "${bearerstatus}" "bearer.ipv4-config.dns.value\[2\]")
+		address=$(modemmanager_get_field "${bearerstatus}" "bearer.ipv4-config.address")
+		prefix=$(modemmanager_get_field "${bearerstatus}" "bearer.ipv4-config.prefix")
+		gateway=$(modemmanager_get_field "${bearerstatus}" "bearer.ipv4-config.gateway")
+		mtu=$(modemmanager_get_field "${bearerstatus}" "bearer.ipv4-config.mtu")
+		dns1=$(modemmanager_get_field "${bearerstatus}" "bearer.ipv4-config.dns.value\[1\]")
+		dns2=$(modemmanager_get_field "${bearerstatus}" "bearer.ipv4-config.dns.value\[2\]")
 		modemmanager_connected_method_static "${interface}" "${beareriface}" "${address}" "${prefix}" "${gateway}" "${mtu}" "${dns1}" "${dns2}" "${metric}"
 		;;
 	"ppp")
@@ -357,7 +359,7 @@ proto_modemmanager_setup() {
 proto_modemmanager_teardown() {
 	local interface="$1"
 
-	local modemstatus bearerpath method errorstring
+	local modemstatus bearerpath errorstring
 
 	local device lowpower
 	json_get_vars device lowpower
