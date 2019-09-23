@@ -20,3 +20,4 @@ Your modem may require additional kernel modules.
         option password 'vodafone'
         option pincode  '7423'
         option lowpower '1'
+        option roaming  '1'
